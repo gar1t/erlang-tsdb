@@ -59,9 +59,8 @@ void traceEvent(int eventTraceLevel, char* file, int line, char * format, ...) {
 #endif
 	     line, extra_msg, buf);
 
-    printf("%s\n", out_buf);
+    fprintf(stderr, "%s\n", out_buf);
   }
 
-  fflush(stdout);
   va_end(va_ap);
 }

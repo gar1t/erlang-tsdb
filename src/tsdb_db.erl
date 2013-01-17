@@ -3,6 +3,7 @@
 -behaviour(gen_server).
 
 -export([start_link/0,
+         ping/2,
          open/2,
          open/3,
          close/1,
@@ -39,6 +40,13 @@ tsdb_port_exe() ->
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+ping(Db, Timeout) ->
+    try
+        gen_server:call(Db, ping, Timeout)
+    catch
+        error:timeout -> timeout
+    end.
 
 open(Db, File) ->
     open(Db, File, []).

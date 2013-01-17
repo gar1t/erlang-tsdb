@@ -7,4 +7,4 @@ clean:
 	$(rebar) clean
 
 shell:
-	erl -pa ebin
+	erl -pa ebin -s tsdb_reloader
