@@ -1,0 +1,8 @@
+# -*-org-*-
+
+tsdb-erlang is a port interface to tsdb.
+
+Erlang communicates with tsdb via an external port. This is not a port driver
+or a NIF.
+
+This interface safe guards the Erlang VM from tsdb crashes.

@@ -1,0 +1,6 @@
+*.beam
+*.o
+erl_crash.dump
+ebin
+deps
+priv/tsdb-port

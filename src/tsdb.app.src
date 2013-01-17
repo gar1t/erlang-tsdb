@@ -1,0 +1,8 @@
+%%% -*-erlang-*-
+{application, tsdb,
+ [{description, "Erlang interface to TSDB - a Time Series Database"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {applications, [kernel, stdlib]},
+  {env, []}
+ ]}.
