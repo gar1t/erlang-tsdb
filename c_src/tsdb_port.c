@@ -194,11 +194,10 @@ static void handle_cmd(byte *buf, state *state, int handler_count,
 
   term = erl_decode(buf);
 
-  for (i = 0; i < handler_count; i++) {
+  for (i = 0; !handled && i < handler_count; i++) {
     if (erl_match(handlers[i].pattern, term)) {
       handlers[i].handler(term, state);
       handled = 1;
-      break;
     }
   }
 
