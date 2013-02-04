@@ -138,8 +138,12 @@ handle_call(Msg, _From, #state{port=Port}=State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-handle_info(_Info, State) ->
-    {noreply, State}.
+handle_info({Port, {exit_status, Exit}}, #state{port=Port}=State) ->
+    {stop, {port_process_exit, Exit}, State};
+handle_info({'EXIT', Port, Reason}, #state{port=Port}=State) ->
+    {stop, {port_exit, Reason}, State};
+handle_info(Msg, State) ->
+    {stop, {unhandled_msg, Msg}, State}.
 
 terminate(_Reason, _State) ->
     ok.
