@@ -252,7 +252,7 @@ static void handle_goto(ETERM *term, state *state) {
 
 static int check_vals_length(int vals_length, state *state) {
   if (vals_length > state->db.num_values_per_entry) {
-    ETERM *error = erl_format("{error,too_many_items}");
+    ETERM *error = erl_format("{error,too_many_values}");
     write_term(error, state);
     erl_free_term(error);
     return 1;
