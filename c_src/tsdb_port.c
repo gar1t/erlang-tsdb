@@ -214,7 +214,7 @@ int main() {
   state state;
 
   erl_init(NULL, 0);
-  db_init(&(state.db));
+  db_init(&state.db);
   trace_init();
 
   int cmd_len;
