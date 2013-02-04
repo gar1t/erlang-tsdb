@@ -116,7 +116,7 @@ static void write_term(ETERM *term, state *state) {
 static void handle_ping(ETERM *term, state *state) {
   ETERM *pong = erl_format("pong");
   write_term(pong, state);
-  erl_free_compound(pong);
+  erl_free_term(pong);
 }
 
 static void handle_info(ETERM *term, state *state) {
