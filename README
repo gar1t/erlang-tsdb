@@ -6,3 +6,5 @@ Erlang communicates with tsdb via an external port. This is not a port driver
 or a NIF.
 
 This interface safe guards the Erlang VM from tsdb crashes.
+
+This code is available under the GPL v3 license. See LICENSE for details.
