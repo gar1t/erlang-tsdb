@@ -137,9 +137,21 @@ static void handle_ping(ETERM *term, state *state) {
 static void handle_info(ETERM *term, state *state) {
   ETERM *reply;
   if (state->db.alive_and_kicking) {
-    reply = erl_format("open");
+    char *read_only;
+    if (state->db.read_only_mode) {
+      read_only = "true";
+    } else {
+      read_only = "false";
+    }
+    reply = erl_format("{ok,["
+                       "{slot_seconds,~i}"
+                       "{values_per_entry,~i},"
+                       "{read_only,~a}]}",
+                       state->db.rrd_slot_time_duration,
+                       state->db.num_values_per_entry,
+                       read_only);
   } else {
-    reply = erl_format("not_open");
+    reply = erl_format("{error,not_open}");
   }
   write_term(reply, state);
   erl_free_term(reply);
