@@ -652,3 +652,25 @@ int tsdb_get(tsdb_handler *handler,
 
   return(rc);
 }
+
+/* *********************************************************************** */
+
+void tsdb_flush(tsdb_handler *handler) {
+
+  if(!handler->alive_and_kicking) {
+    return;
+  }
+
+  if(handler->read_only_mode) {
+    return;
+  }
+
+  map_raw_set(handler, "lowest_free_index", strlen("lowest_free_index"),
+              &handler->lowest_free_index, sizeof(handler->lowest_free_index));
+
+  tsdb_flush_chunk(handler);
+
+  traceEvent(TRACE_INFO, "Flushing database changes...");
+
+  handler->db->sync(handler->db, 0);
+}

@@ -113,3 +113,5 @@ extern int tsdb_get(tsdb_handler *handler,
 extern void tsdb_drop_key(tsdb_handler *handler,
 			  char *hash_index,
 			  u_int32_t epoch_value);
+
+extern void tsdb_flush(tsdb_handler *handler);
