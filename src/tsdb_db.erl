@@ -23,9 +23,9 @@
          open/2,
          open/3,
          close/1,
+         flush/1,
          info/1,
          goto_epoch/2,
-         goto_epoch/3,
          set_values/3,
          get_values/2]).
 
@@ -73,6 +73,9 @@ ping(Db, Timeout) ->
 close(Db) ->
     gen_server:call(Db, close, infinity).
 
+flush(Db) ->
+    gen_server:call(Db, flush, infinity).
+
 open(Db, File) ->
     open(Db, File, []).
 
@@ -89,6 +92,7 @@ open(Db, File) ->
 %% option() = {slot_seconds, integer()}
 %%          | {values_per_entry, integer()}
 %%          | read_only
+%% Readon = already_opened | {tsdb_open, integer()}
 %% @end
 %%--------------------------------------------------------------------
 
@@ -123,17 +127,47 @@ bool_to_int(true) -> 1.
 info(Db) ->
     gen_server:call(Db, info, infinity).
 
-goto_epoch(Db, Epoch) ->
-    goto_epoch(Db, Epoch, []).
+%%--------------------------------------------------------------------
+%% @doc Sets the database to read/write at a particular epoch.
+%%
+%% @spec goto_epoch(Db, Epoch) -> ok | {error, Reason}
+%% Db = pid() | atom()
+%% Epoch = integer()
+%% Reason = not_open | {tsdb_goto_epoch, integer()}
+%% @end
+%%--------------------------------------------------------------------
 
-goto_epoch(Db, Epoch, Options) ->
-    gen_server:call(Db, {goto_epoch, Epoch, Options}, infinity).
+goto_epoch(Db, Epoch) when is_integer(Epoch), Epoch >= 0 ->
+    gen_server:call(Db, {goto, Epoch}, infinity).
+
+%%--------------------------------------------------------------------
+%% @doc Sets values for a key at the current epoch.
+%%
+%% @spec set_values(Db, Key, Values) -> ok | {error, Reason}
+%% Db = pid() | atom()
+%% Key = string()
+%% Values = [integer()]
+%% Reason = not_open | missing_epoch | too_many_values
+%%        | {tsdb_set, integer()}
+%% @end
+%%--------------------------------------------------------------------
 
 set_values(Db, Key, Values) ->
-    gen_server:call(Db, {set_values, Key, Values}, infinity).
+    gen_server:call(Db, {set, Key, Values}, infinity).
+
+%%--------------------------------------------------------------------
+%% @doc Gets values for a key at the current epoch.
+%%
+%% @spec get_values(Db, Key) -> {ok, Values} | {error, Reason}
+%% Db = pid() | atom()
+%% Key = string()
+%% Values = [integer()]
+%% Reason = not_found | not_open | missing_epoch
+%%        | {tsdb_get, integer()}
+%%--------------------------------------------------------------------
 
 get_values(Db, Key) ->
-    gen_server:call(Db, {get_values, Key}, infinity).
+    gen_server:call(Db, {get, Key}, infinity).
 
 %%%===================================================================
 %%% Callbacks

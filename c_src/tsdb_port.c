@@ -103,7 +103,7 @@ static void db_init(tsdb_handler *db) {
 }
 
 static void trace_init() {
-  traceLevel = 99;
+  traceLevel = 0;
 }
 
 static int safe_erl_encode(ETERM *term, int buf_size, byte *buf) {
@@ -145,7 +145,7 @@ static void handle_info(ETERM *term, state *state) {
   erl_free_term(reply);
 }
 
-static int check_db_open(state *state) {
+static int check_db_not_opened(state *state) {
   if (state->db.alive_and_kicking) {
     ETERM *error = erl_format("{error,already_open}");
     write_term(error, state);
@@ -157,7 +157,7 @@ static int check_db_open(state *state) {
 }
 
 static void handle_open(ETERM *term, state *state) {
-  if (check_db_open(state)) {
+  if (check_db_not_opened(state)) {
     return;
   }
 
@@ -170,9 +170,6 @@ static void handle_open(ETERM *term, state *state) {
   u_int32_t slot_seconds = ERL_INT_UVALUE(slot_seconds_arg);
   u_int16_t values_per_entry = ERL_INT_UVALUE(values_per_entry_arg);
   u_int8_t read_only = ERL_INT_UVALUE(read_only_arg);
-
-  fprintf(stderr, "file=%s ss=%u vpe=%u ro=%u",
-          file, slot_seconds, values_per_entry, read_only);
 
   ETERM *reply;
   int rc;
@@ -197,6 +194,146 @@ static void handle_close(ETERM *pattern, state *state) {
     exit(EXIT_INTERNAL_ERROR);
   }
 
+  ETERM *reply = erl_format("ok");
+  write_term(reply, state);
+  erl_free_term(reply);
+}
+
+static int check_db_opened(state *state) {
+  if (!state->db.alive_and_kicking) {
+    ETERM *error = erl_format("{error,not_open}");
+    write_term(error, state);
+    erl_free_term(error);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static void handle_goto(ETERM *term, state *state) {
+  if (check_db_opened(state)) {
+    return;
+  }
+
+  ETERM *epoch_arg = erl_element(2, term);
+
+  u_int32_t epoch = ERL_INT_UVALUE(epoch_arg);
+  u_int8_t create_if_needed = 1;
+  u_int8_t growable = 1;
+  u_int8_t load_page_on_demand = 0;
+
+  ETERM *reply;
+  int rc;
+
+  rc = tsdb_goto_epoch(&state->db, epoch, create_if_needed, growable,
+                       load_page_on_demand);
+  if (rc) {
+    reply = erl_format("{error,{tsdb_goto_epoch,~i}}", rc);
+  } else {
+    reply = erl_format("ok");
+  }
+
+  write_term(reply, state);
+
+  erl_free_term(reply);
+}
+
+static int check_vals_length(int vals_length, state *state) {
+  if (vals_length > state->db.num_values_per_entry) {
+    ETERM *error = erl_format("{error,too_many_items}");
+    write_term(error, state);
+    erl_free_term(error);
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+static void handle_set(ETERM *term, state *state) {
+  if (check_db_opened(state)) {
+    return;
+  }
+
+  ETERM *key_arg = erl_element(2, term);
+  ETERM *vals_arg = erl_element(3, term);
+
+  if (check_vals_length(erl_length(vals_arg), state)) {
+      return;
+  }
+
+  char *key = erl_iolist_to_string(key_arg);
+  int vals_per_entry = state->db.num_values_per_entry;
+  tsdb_value *vals = erl_malloc(vals_per_entry * sizeof(tsdb_value));
+  int i; ETERM *val;
+  for (i = 0; i < vals_per_entry; i++) {
+    val = erl_hd(vals_arg);
+    if (val) {
+      vals[i] = ERL_INT_UVALUE(val);
+      vals_arg = erl_tl(vals_arg);
+    } else {
+      vals[i] = 0;
+    }
+  }
+
+  ETERM *reply;
+  int rc;
+
+  rc = tsdb_set(&state->db, key, vals);
+  if (rc == -2) {
+    reply = erl_format("{error,missing_epoch}");
+  } else if (rc) {
+    reply = erl_format("{error,{tsdb_set,~i}}", rc);
+  } else {
+    reply = erl_format("ok");
+  }
+
+  write_term(reply, state);
+
+  erl_free(key);
+  erl_free(vals);
+  erl_free_term(reply);
+}
+
+static void handle_get(ETERM *term, state *state) {
+  if (check_db_opened(state)) {
+    return;
+  }
+
+  ETERM *key_arg = erl_element(2, term);
+
+  char *key = erl_iolist_to_string(key_arg);
+  int vals_per_entry = state->db.num_values_per_entry;
+  tsdb_value *vals;
+
+  ETERM *reply;
+  ETERM **reply_val_array;
+  ETERM *reply_val_list;
+  int rc, i;
+
+  rc = tsdb_get(&state->db, key, &vals);
+  if (rc >= 0) {
+    reply_val_array = erl_malloc(vals_per_entry);
+    for (i = 0; i < vals_per_entry; i++) {
+      reply_val_array[i] = erl_mk_int(vals[i]);
+    }
+    reply_val_list = erl_mk_list(reply_val_array, vals_per_entry);
+    reply = erl_format("{ok,~w}", reply_val_list);
+  } else if (rc == -1) {
+    reply = erl_format("{error,not_found}");
+  } else if (rc == -2) {
+    reply = erl_format("{error,missing_epoch}");
+  } else {
+    reply = erl_format("{error,{tsdb_get,~i}}", rc);
+  }
+
+  write_term(reply, state);
+
+  erl_free(key);
+  erl_free_compound(reply);
+}
+
+static void handle_flush(ETERM *pattern, state *state) {
+  tsdb_flush(&state->db);
   ETERM *reply = erl_format("ok");
   write_term(reply, state);
   erl_free_term(reply);
@@ -235,7 +372,7 @@ int main() {
   int cmd_len;
   byte cmd_buf[CMD_BUF_SIZE];
 
-  int HANDLER_COUNT = 4;
+  int HANDLER_COUNT = 8;
   cmd_handler handlers[HANDLER_COUNT];
   handlers[0].pattern = erl_format("ping");
   handlers[0].handler = &handle_ping;
@@ -245,6 +382,14 @@ int main() {
   handlers[2].handler = &handle_open;
   handlers[3].pattern = erl_format("close");
   handlers[3].handler = &handle_close;
+  handlers[4].pattern = erl_format("{goto,_}");
+  handlers[4].handler = &handle_goto;
+  handlers[5].pattern = erl_format("{set,_,_}");
+  handlers[5].handler = &handle_set;
+  handlers[6].pattern = erl_format("{get,_}");
+  handlers[6].handler = &handle_get;
+  handlers[7].pattern = erl_format("flush");
+  handlers[7].handler = &handle_flush;
 
   while (1) {
     cmd_len = read_cmd(CMD_BUF_SIZE, cmd_buf);
