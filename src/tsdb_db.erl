@@ -18,6 +18,9 @@
 
 -record(state, {port}).
 
+-define(DEFAULT_SLOT_SECONDS, 60).
+-define(DEFAULT_VALUES_PER_ENTRY, 1).
+
 %%%===================================================================
 %%% Start / init
 %%%===================================================================
@@ -48,14 +51,55 @@ ping(Db, Timeout) ->
         error:timeout -> timeout
     end.
 
-open(Db, File) ->
-    open(Db, File, []).
-
 close(Db) ->
     gen_server:call(Db, close, infinity).
 
+open(Db, File) ->
+    open(Db, File, []).
+
+%%--------------------------------------------------------------------
+%% @doc Opens a database.
+%%
+%% Default value for slot_seconds is 60. Default for values_per_entry
+%% is 1. read_only defaults to false.
+%%
+%% @spec open(Db, File, Options) -> ok | {error, Reason}
+%% Db = pid() | atom()
+%% File = string()
+%% Options = [option()]
+%% option() = {slot_seconds, integer()}
+%%          | {values_per_entry, integer()}
+%%          | read_only
+%% @end
+%%--------------------------------------------------------------------
+
 open(Db, File, Options) ->
-    gen_server:call(Db, {open, File, Options}, infinity).
+    SlotSeconds = slot_seconds_option(Options),
+    ValuesPerEntry = values_per_entry_option(Options),
+    ReadOnly = read_only_option(Options),
+    Open = {open, File, SlotSeconds, ValuesPerEntry, ReadOnly},
+    gen_server:call(Db, Open, infinity).
+
+slot_seconds_option(Options) ->
+    validate_slot_seconds(
+      proplists:get_value(slot_seconds, Options, ?DEFAULT_SLOT_SECONDS)).
+
+validate_slot_seconds(I) when is_integer(I), I > 0 -> I;
+validate_slot_seconds(Other) -> error({invalid_slot_seconds, Other}).
+
+values_per_entry_option(Options) ->
+    validate_values_per_entry(
+      proplists:get_value(
+        values_per_entry, Options, ?DEFAULT_VALUES_PER_ENTRY)).
+
+validate_values_per_entry(I) when is_integer(I), I > 0 -> I;
+validate_values_per_entry(Other) -> error({invalid_values_per_entry, Other}).
+
+read_only_option(Options) ->
+    bool_to_int(proplists:get_bool(read_only, Options)).
+
+bool_to_int(false) -> 0;
+bool_to_int(true) -> 1.
 
 info(Db) ->
     gen_server:call(Db, info, infinity).
