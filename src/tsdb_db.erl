@@ -3,6 +3,7 @@
 -behaviour(gen_server).
 
 -export([start_link/0,
+         ping/1,
          ping/2,
          open/2,
          open/3,
@@ -18,6 +19,7 @@
 
 -record(state, {port}).
 
+-define(DEFAULT_PING_TIMEOUT, 1000).
 -define(DEFAULT_SLOT_SECONDS, 60).
 -define(DEFAULT_VALUES_PER_ENTRY, 1).
 
@@ -43,6 +45,8 @@ tsdb_port_exe() ->
 %%%===================================================================
 %%% API
 %%%===================================================================
+
+ping(Db) -> ping(Db, ?DEFAULT_PING_TIMEOUT).
 
 ping(Db, Timeout) ->
     try
